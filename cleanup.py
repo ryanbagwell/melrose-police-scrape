@@ -35,15 +35,24 @@ def cleanup():
         #
         #   categorize directed patrols
         #
-        if 'incidentTitle' in val.keys() and 'directed' in val['incidentTitle'].lower() and not val['category']:
+        if 'incidentTitle' in val.keys() and not val['category']:
 
-            updates['category'] = 'Directed Patrol'
+            if 'directed' in val['incidentTitle'].lower():
 
+                updates['category'] = 'Directed Patrol'
+
+            elif 'motor vehicle stop' in val['incidentTitle'].lower():
+
+                updates['category'] = 'Motor Vehicle Stop'
+
+            elif 'medical emergency' in val['incidentTitle'].lower():
+
+                updates['category'] = 'Medical Emergency'
 
         #
         #   create various date formats
         #
-        if 'isotime' not in keys:
+        if 'isotime' not in keys or val['isotime'] is None:
 
             try:
                 date_string = "%s %s" % (val['date'], val['incidentTime'])
@@ -60,6 +69,16 @@ def cleanup():
         except:
             pass
 
+        #
+        #   fix old keys
+        #
+        if '-' in report.key():
+            print "Deleting %s" % report.key()
+            firebase.database().child('reports').child(report.key()).remove()
+
         if len(updates.keys()) > 0:
             print "Updating %s %s" % (val['incidentNumber'], updates)
             firebase.database().child('reports').child(report.key()).update(updates)
+
+if __name__ == '__main__':
+    cleanup()
