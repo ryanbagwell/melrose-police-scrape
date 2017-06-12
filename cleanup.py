@@ -18,6 +18,8 @@ def cleanup():
 
         updates = {}
 
+        # print val['incidentTitle']
+
         #
         #   create a common location property
         #
@@ -29,6 +31,14 @@ def cleanup():
                     final_location = val[word]
                     updates['finalLocation'] = final_location
                     break
+
+        #
+        #   categorize directed patrols
+        #
+        if 'incidentTitle' in val.keys() and 'directed' in val['incidentTitle'].lower() and not val['category']:
+
+            updates['category'] = 'Directed Patrol'
+
 
         #
         #   create various date formats
@@ -53,4 +63,3 @@ def cleanup():
         if len(updates.keys()) > 0:
             print "Updating %s %s" % (val['incidentNumber'], updates)
             firebase.database().child('reports').child(report.key()).update(updates)
-
