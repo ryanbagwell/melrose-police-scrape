@@ -13,11 +13,19 @@ from StringIO import StringIO
 from bs4 import BeautifulSoup
 import re
 from slugify import slugify
-from datetime import datetime
 import time
 from firebase import firebase
 from cleanup import cleanup
+from dateutil.parser import parse
+from datetime import datetime, timedelta
 
+errors = []
+
+delimiter = '-------'
+
+def log_error(description, error, original):
+    msg = "%s: %s\n%s" % (description, error, original)
+    errors.append(msg)
 
 
 def to_camelcase(str):
@@ -28,10 +36,10 @@ def to_camelcase(str):
     return ''.join(split)
 
 patterns = {
-    'incident_number': '(?P<incident_number>^\d{2}-\d{1,6})\s.+',
+    'incident_number': '(?P<incident_number>^1\d-\d{1,6})\s.+',
     'incident_time': '\d{2}-\d{1,6}\s(?P<incident_time>\d{4})',
     'incident_title': '\d{2}-\d{1,6}\s\d{4}(?P<incident_title>.+)',
-    'incident_date': '^For Date: (?P<date>.+)',
+    'incident_date': 'Date: (?P<date>\d{1,2}/\d{1,2}/\d{4})',
 }
 
 
@@ -72,8 +80,8 @@ def incident_parser(text, incident_date):
 
     try:
         incident_date = re.search('(?P<incident_date>\d{2}/\d{2}/\d{4})', incident_date).group('incident_date')
-    except:
-        pass
+    except Exception as e:
+        log_error("Error pasing incident_date", e, text)
 
     data = {
         'incident_number': '',
@@ -95,31 +103,36 @@ def incident_parser(text, incident_date):
 
     try:
         data['incident_number'] = re.search(patterns['incident_number'], cleaned, flags=0).group('incident_number')
-    except:
+    except Exception as e:
+        log_error("Error parsing incident_number field", e, text)
         data['incident_number'] = 'unable to parse'
 
     try:
         data['incident_time'] = re.search(patterns['incident_time'], cleaned, flags=0).group('incident_time')
-    except:
+    except Exception as e:
+        log_error("Error parsing incident_time field", e, text)
         data['incident_time'] = 'unable to parse'
 
     try:
         data['incident_title'] = re.search(patterns['incident_title'], cleaned, flags=0).group('incident_title').strip()
-    except:
+    except Exception as e:
+        log_error("Error parsing incident_title field", e, text)
         data['incident_title'] = 'unable to parse'
 
     try:
         date_string = "%s %s" % (data['date'], data['incident_time'])
         d = datetime.strptime(date_string, '%m/%d/%Y %H%M')
         data['isotime'] = d.isoformat()
-    except:
+    except Exception as e:
+        log_error("Error parsing isotime field", e, text)
         data['isotime'] = 'unable to parse'
 
     try:
         date_string = "%s %s" % (data['date'], data['incident_time'])
         dt = datetime.strptime(date_string, '%m/%d/%Y %H%M')
         data['timestamp'] = time.mktime(dt.timetuple())
-    except:
+    except Exception as e:
+        log_error("Error parsing timestamp field", e, text)
         data['timestamp'] = 'unable to parse'
 
     for word in keywords:
@@ -129,8 +142,8 @@ def incident_parser(text, incident_date):
             results = re.findall(pattern, cleaned, flags=0)
             if results:
                 data[results[0][0]] = '. '.join([result[1] for result in results]).strip()
-        except:
-            pass
+        except Exception as e:
+            log_error("Error parsing %s field" % word, e, text)
 
     try:
         if re.search('verbal', data['Narrative'], re.IGNORECASE) and not re.search('argument', data['Narrative'], re.IGNORECASE):
@@ -149,8 +162,8 @@ def incident_parser(text, incident_date):
             data['citation'] = True
             data['num_citations'] = 1
 
-    except:
-        print data
+    except Exception as e:
+        log_error("Error parsing citation fields", e, text)
 
     data['num_penalty_types'] = len([True for l in ['verbal_warning',
                                                             'written_warning',
@@ -166,7 +179,7 @@ current_date = ''
 class PoliceReportSpider(scrapy.Spider):
     name = 'Police Report Spider'
     start_urls = ['http://melrosepolice.net/police-logs/']
-    weeks_to_scrape = 1
+    weeks_to_scrape = 10
 
     def __init__(self, *args, **kwargs):
         super(PoliceReportSpider, self).__init__(*args, **kwargs)
@@ -184,24 +197,67 @@ class PoliceReportSpider(scrapy.Spider):
 
             def reducer(final, value):
 
-                incident_number_result = re.search(patterns['incident_number'], value, flags=0)
+                incident_number_result = re.search(patterns['incident_number'],
+                                                   value, flags=0)
 
                 if incident_number_result:
-                    final.append('-------')
+                    final.append(delimiter)
 
-                date_result = re.search(patterns['incident_date'], value, flags=0)
+                date_result = re.search(patterns['incident_date'],
+                                        value, flags=0)
 
                 if date_result:
-                    final.append('-------')
+                    final.append(delimiter)
 
-                if re.search('Melrose Police Department Page', value, flags=0):
-                    final.append('-------')
-
-                final.append(value)
+                final.append(value.strip())
 
                 return final
 
             els = reduce(reducer, els, [])
+
+            """
+            Check to make sure we have 7 date delimiters
+
+            """
+            def date_reducer(final, value):
+
+                date_result = re.search(patterns['incident_date'],
+                                        value, flags=0)
+
+                if date_result:
+                    final.append(date_result.group('date'))
+
+                return final
+
+            dates = reduce(date_reducer, els, [])
+
+            """
+            If we didn't find 7 date delimiters, try to fix it
+            """
+            if len(dates) is not 7:
+
+                """
+                Check if the first date label was missing from the document.
+                It should be in the second array value.
+
+                """
+                date_result = re.search(patterns['incident_date'],
+                                        els[1], flags=0)
+
+                if not date_result and len(dates) == 6:
+                    last = parse(dates[-1])
+                    first = last - timedelta(days=6)
+                    els = [delimiter, 'For Date: %s' % first.strftime('%m/%d/%Y')] + els
+
+                else:
+
+                    """
+                    If one of the other dates is missing,
+                    raise an exception because I don't think it will be
+                    possible to figure out where the other dates
+                    belong
+                    """
+                    raise Exception("Only %s dates exist in this document (%s). I'm stopping here." % (len(dates), ', '.join(dates)))
 
             els = '\n'.join(els)
 
@@ -210,9 +266,11 @@ class PoliceReportSpider(scrapy.Spider):
 
                 try:
                     current_date = re.search(patterns['incident_date'],
-                                             item.strip(' \t\n\r'), flags=0).group('date')
-                except:
+                                             item.strip('\t\n\r'), flags=0).group('date')
+                    return None
+                except Exception as e:
                     pass
+                    # log_error("Error parsing current date", e, item)
 
                 parsed, cleaned, raw = incident_parser(item, current_date)
 
@@ -220,7 +278,12 @@ class PoliceReportSpider(scrapy.Spider):
 
             els = map(mapper, els.split('-------'))
 
+            existing_reports = firebase.database().child('reports').shallow().get().each()
+
             for i, el in enumerate(els):
+
+                if el is None:
+                    continue
 
                 cleaned_dict = {}
 
@@ -232,9 +295,7 @@ class PoliceReportSpider(scrapy.Spider):
 
                 numerical_id = cleaned_dict['incidentNumber'].replace('-', '')
 
-                report = self.db.child('reports').child(numerical_id)
-
-                if not report.get().val():
+                if numerical_id not in existing_reports:
                     print "Saving %s" % cleaned_dict['incidentNumber']
                     self.db.child('reports').child(numerical_id).update(cleaned_dict)
                 else:
@@ -246,5 +307,12 @@ class PoliceReportSpider(scrapy.Spider):
 
         for link in links[:self.weeks_to_scrape]:
             yield scrapy.Request(response.urljoin(link), callback=self.parse)
+
+        if errors:
+            print "Couldn't parse %s incidents" % len(errors)
+
+            for error in errors:
+                print error
+                print '\n'
 
         cleanup()

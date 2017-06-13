@@ -18,7 +18,30 @@ def cleanup():
 
         updates = {}
 
-        # print val['incidentTitle']
+
+        #
+        #   fix old keys
+        #
+        if '-' in report.key():
+            print "Deleting %s" % report.key()
+            firebase.database().child('reports').child(report.key()).remove()
+            continue
+
+        #
+        #   If a key starts with anything other than 1, somewthing went wront
+        #
+        if report.key()[0] != '1':
+            print "Deleting %s" % report.key()
+            firebase.database().child('reports').child(report.key()).remove()
+            continue
+
+        #
+        #   If a date gets messed up somehow, just delete it
+        #
+        if not val['date']:
+            print "Deleting %s" % report.key()
+            firebase.database().child('reports').child(report.key()).remove()
+            continue
 
         #
         #   create a common location property
@@ -68,13 +91,6 @@ def cleanup():
                 updates['timestamp'] = time.mktime(dt.timetuple())
         except:
             pass
-
-        #
-        #   fix old keys
-        #
-        if '-' in report.key():
-            print "Deleting %s" % report.key()
-            firebase.database().child('reports').child(report.key()).remove()
 
         if len(updates.keys()) > 0:
             print "Updating %s %s" % (val['incidentNumber'], updates)

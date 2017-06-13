@@ -9,6 +9,9 @@ import datetime
 
 def write_row(writer, data):
 
+    print data
+    print '\n'
+
     dt = datetime.datetime.strptime(data.get('isotime'), "%Y-%m-%dT%H:%M:%S")
 
     writer.writerow([
