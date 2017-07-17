@@ -40,6 +40,7 @@ patterns = {
     'incident_time': '\d{2}-\d{1,6}\s(?P<incident_time>\d{4})',
     'incident_title': '\d{2}-\d{1,6}\s\d{4}(?P<incident_title>.+)',
     'incident_date': 'Date: (?P<date>\d{1,2}/\d{1,2}/\d{4})',
+    'incident_name': '\d{2}-\d{1,6}\s\d{4}(?P<incident_name>[A-Z\s/]+)',
 }
 
 
@@ -75,6 +76,9 @@ def incident_parser(text, incident_date):
         return final
 
     cleaned = reduce(reducer, lines, [])
+
+    print cleaned
+    print ''
 
     cleaned = '\n'.join(cleaned)
 
@@ -115,6 +119,12 @@ def incident_parser(text, incident_date):
 
     try:
         data['incident_title'] = re.search(patterns['incident_title'], cleaned, flags=0).group('incident_title').strip()
+    except Exception as e:
+        log_error("Error parsing incident_title field", e, text)
+        data['incident_title'] = 'unable to parse'
+
+    try:
+        data['incident_name'] = re.search(patterns['incident_title'], cleaned, flags=0).group('incident_title').strip()
     except Exception as e:
         log_error("Error parsing incident_title field", e, text)
         data['incident_title'] = 'unable to parse'

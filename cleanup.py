@@ -6,6 +6,8 @@ various fields
 from firebase import firebase
 from datetime import datetime
 import time
+from dispositions import COMMON_DISPOSITIONS
+import re
 
 def cleanup():
 
@@ -91,6 +93,30 @@ def cleanup():
                 updates['timestamp'] = time.mktime(dt.timetuple())
         except:
             pass
+
+        try:
+            if 'disposition' not in val.keys() or val['disposition'] == '':
+                patt = '|'.join(COMMON_DISPOSITIONS)
+                disposition = re.search(patt, val['incidentTitle'], flags=0).group(0).strip()
+                updates['disposition'] = disposition
+        except:
+            print "Couldn't find disposition for '%s'" % val['incidentTitle']
+
+        if 'incidentName' not in val.keys() or val['incidentName'] == '':
+            patt = '|'.join(COMMON_DISPOSITIONS)
+            disposition = re.search(patt, val['incidentTitle'], flags=0).group(0).strip()
+            name = val['incidentTitle'].replace(disposition, '').replace('*', '').strip()
+            updates['incidentName'] = name
+
+        # try:
+        #     if 'incidentName' not in val.keys() or val['incidentName'] == '':
+        #         print val['incidentTitle'].replace(val['disposition'], '')
+        # except:
+        #     print "Couldn't find disposition for '%s'" % val['incidentTitle']
+
+
+
+
 
         if len(updates.keys()) > 0:
             print "Updating %s %s" % (val['incidentNumber'], updates)
