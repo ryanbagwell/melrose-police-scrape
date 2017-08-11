@@ -38,4 +38,5 @@ COMMON_DISPOSITIONS = [
     'SummonsNot Served',
     'Removed Hazard',
     'PeaceRestored',
+    'Prot.Cust. 18 & Over',
 ]

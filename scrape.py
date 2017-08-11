@@ -77,10 +77,10 @@ def incident_parser(text, incident_date):
 
     cleaned = reduce(reducer, lines, [])
 
-    print cleaned
-    print ''
-
     cleaned = '\n'.join(cleaned)
+
+    if cleaned == '':
+        return None, '', ''
 
     try:
         incident_date = re.search('(?P<incident_date>\d{2}/\d{2}/\d{4})', incident_date).group('incident_date')
@@ -176,10 +176,9 @@ def incident_parser(text, incident_date):
         log_error("Error parsing citation fields", e, text)
 
     data['num_penalty_types'] = len([True for l in ['verbal_warning',
-                                                            'written_warning',
-                                                            'unspecified_warning',
-                                                            'citation'] if data[l]])
-
+                                                    'written_warning',
+                                                    'unspecified_warning',
+                                                    'citation'] if data[l]])
     return data, cleaned, text
 
 
@@ -204,6 +203,10 @@ class PoliceReportSpider(scrapy.Spider):
             text = zip.read('word/document.xml')
             soup = BeautifulSoup(text)
             els = [el.text.encode('ascii', errors='ignore') for el in soup.find_all('w:t')]
+
+            print "----------------------------"
+            print "Starting to parse %s" % response.url
+            print "----------------------------"
 
             def reducer(final, value):
 
@@ -244,7 +247,7 @@ class PoliceReportSpider(scrapy.Spider):
             """
             If we didn't find 7 date delimiters, try to fix it
             """
-            if len(dates) is not 7:
+            if len(dates) < 7:
 
                 """
                 Check if the first date label was missing from the document.

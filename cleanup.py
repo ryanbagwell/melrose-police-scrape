@@ -58,6 +58,16 @@ def cleanup():
                     break
 
         #
+        #   Remove bad data from the incident title
+        #
+        if 'incidentTitle' in val.keys() and 'Location/Address' in val['incidentTitle']:
+            try:
+                cleaned_title = re.search('^.*(?=(Location/Address))', val['incidentTitle'], flags=0).group(0).strip()
+                updates['incidentTitle'] = cleaned_title
+            except:
+                pass
+
+        #
         #   categorize directed patrols
         #
         if 'incidentTitle' in val.keys() and not val['category']:
@@ -108,11 +118,16 @@ def cleanup():
             name = val['incidentTitle'].replace(disposition, '').replace('*', '').strip()
             updates['incidentName'] = name
 
-        # try:
-        #     if 'incidentName' not in val.keys() or val['incidentName'] == '':
-        #         print val['incidentTitle'].replace(val['disposition'], '')
-        # except:
-        #     print "Couldn't find disposition for '%s'" % val['incidentTitle']
+        #
+        #   Remove bad data from the incident name
+        #
+        if 'incidentName' in val.keys() and 'Location/Address' in val['incidentName']:
+            try:
+                cleaned_name = re.search('^.*(?=(Location/Address))', val['incidentName'], flags=0).group(0).strip()
+                updates['incidentName'] = cleaned_name
+            except:
+                pass
+
 
 
 

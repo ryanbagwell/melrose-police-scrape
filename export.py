@@ -41,6 +41,7 @@ def write_row(writer, data):
         data.get('finalLocation'),
         data.get('category'),
         data.get('narrative'),
+        data.get('original'),
     ])
 
 
@@ -63,6 +64,7 @@ def get_writer(file_object):
         'location',
         'category',
         'narrative',
+        'original',
     ])
 
     return writer
