@@ -9,9 +9,12 @@ import time
 from dispositions import COMMON_DISPOSITIONS
 import re
 
+
 def cleanup():
 
     reports = firebase.database().child('reports').get().each()
+
+    location_prefix_regex = re.compile(r'\[.*\]', re.IGNORECASE)
 
     for report in reports:
         val = report.val()
@@ -56,6 +59,21 @@ def cleanup():
                     final_location = val[word]
                     updates['finalLocation'] = final_location
                     break
+
+        #
+        #   clean up the final location property
+        #
+        if 'finalLocation' in keys:
+
+            cleaned_location = re.sub(r'\[.*\]', '', val['finalLocation']).strip()
+
+            starting_with_number = re.search(r'\d.*', cleaned_location)
+
+            replacement = starting_with_number.group(0) if starting_with_number is not None else cleaned_location
+
+            if replacement != val['finalLocation']:
+                updates['finalLocation'] = replacement
+
 
         #
         #   Remove bad data from the incident title
