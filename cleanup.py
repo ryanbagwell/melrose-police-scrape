@@ -63,11 +63,23 @@ def cleanup():
         #
         if 'finalLocation' in keys:
 
+            #
+            #   First, remove the prefix that's between brackets
+            #
             cleaned_location = re.sub(r'\[.*\]', '', val['finalLocation']).strip()
 
+            #
+            #   Now try to remove the name of the address and start with a number,
+            #   for cases like "Milano Center - 20 Main St"
+            #
             starting_with_number = re.search(r'\d.*', cleaned_location)
 
             replacement = starting_with_number.group(0) if starting_with_number is not None else cleaned_location
+
+            #
+            #   Try and remove apartment numbers
+            #
+            replacement = re.sub(r'Apt\. #\d+', '', replacement).strip()
 
             if replacement != val['finalLocation']:
                 updates['finalLocation'] = replacement
@@ -143,6 +155,21 @@ def cleanup():
                 updates['incidentName'] = cleaned_name
             except:
                 pass
+
+        #
+        #   Remove generic position data like
+        #   {u'lat': 42.4457707, u'lng': -71.0601603}
+        #
+        if 'position' in val.keys():
+
+            if val['position'] == 'Rate Limited':
+                updates['position'] = None
+
+            if type(val['position']) is list:
+                updates['position'] = None
+
+            if type(val['position']) is dict and val['position']['lat'] == '42.459952' and val['position']['lng'] == '-71.05889':
+                updates['position'] = None
 
         if len(updates.keys()) > 0:
             print "Updating %s %s" % (val['incidentNumber'], updates)
