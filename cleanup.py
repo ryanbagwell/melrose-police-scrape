@@ -14,8 +14,6 @@ def cleanup():
 
     reports = firebase.database().child('reports').get().each()
 
-    location_prefix_regex = re.compile(r'\[.*\]', re.IGNORECASE)
-
     for report in reports:
         val = report.val()
 
@@ -145,11 +143,6 @@ def cleanup():
                 updates['incidentName'] = cleaned_name
             except:
                 pass
-
-
-
-
-
 
         if len(updates.keys()) > 0:
             print "Updating %s %s" % (val['incidentNumber'], updates)

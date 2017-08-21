@@ -16,6 +16,7 @@ from slugify import slugify
 import time
 from firebase import firebase
 from cleanup import cleanup
+from geocode import geocode
 from dateutil.parser import parse
 from datetime import datetime, timedelta
 
@@ -59,6 +60,11 @@ def incident_parser(text, incident_date):
 
     lines = text.split('\n')
 
+    # print text
+    # print ''
+    # print lines
+    # print ''
+
     def reducer(final, value):
 
         pattern = '(?P<key>%s):(?P<value>.{0,1000})' % '|'.join(keywords)
@@ -78,6 +84,9 @@ def incident_parser(text, incident_date):
     cleaned = reduce(reducer, lines, [])
 
     cleaned = '\n'.join(cleaned)
+
+    # print cleaned
+    # print ''
 
     if cleaned == '':
         return None, '', ''
@@ -329,3 +338,5 @@ class PoliceReportSpider(scrapy.Spider):
                 print '\n'
 
         cleanup()
+
+        geocode()
